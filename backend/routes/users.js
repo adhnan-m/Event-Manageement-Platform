@@ -1,0 +1,151 @@
+const express = require('express');
+const User = require('../models/User');
+const auth = require('../middleware/auth');
+
+const router = express.Router();
+
+// @route   GET /api/users/profile
+// @desc    Get current user profile
+router.get('/profile', auth, async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id).select('-password');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.json({ ...user.toObject(), id: user._id });
+    } catch (error) {
+        console.error('Get profile error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   PUT /api/users/profile
+// @desc    Update current user profile
+router.put('/profile', auth, async (req, res) => {
+    try {
+        const { name, semester, department, phoneNumber } = req.body;
+
+        const updateFields = {};
+        if (name !== undefined) updateFields.name = name;
+        if (semester !== undefined) updateFields.semester = semester;
+        if (department !== undefined) updateFields.department = department;
+        if (phoneNumber !== undefined) updateFields.phoneNumber = phoneNumber;
+
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            { $set: updateFields },
+            { new: true }
+        ).select('-password');
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        res.json({ ...user.toObject(), id: user._id });
+    } catch (error) {
+        console.error('Update profile error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+
+
+// @route   GET /api/users/students
+// @desc    Get all students and volunteers (for volunteer assignment)
+router.get('/students', auth, async (req, res) => {
+    try {
+        const users = await User.find({ role: { $in: ['student', 'volunteer'] } })
+            .select('-password')
+            .sort({ name: 1 });
+        const mapped = users.map(u => ({ ...u.toObject(), id: u._id }));
+        res.json(mapped);
+    } catch (error) {
+        console.error('Get students error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   PUT /api/users/transfer-admin
+// NOTE: This MUST be defined BEFORE /:id/role to avoid Express treating 'transfer-admin' as :id
+// @desc    Transfer club admin position to a student (current admin becomes volunteer)
+router.put('/transfer-admin', auth, async (req, res) => {
+    try {
+        if (req.user.role !== 'clubAdmin') {
+            return res.status(403).json({ message: 'Only club admins can transfer their position' });
+        }
+
+        const { targetUserId } = req.body;
+        if (!targetUserId) {
+            return res.status(400).json({ message: 'Target user ID is required' });
+        }
+
+        const targetUser = await User.findById(targetUserId);
+        if (!targetUser) {
+            return res.status(404).json({ message: 'Target user not found' });
+        }
+
+        if (!['student', 'volunteer'].includes(targetUser.role)) {
+            return res.status(400).json({ message: 'Can only transfer admin to a student or volunteer' });
+        }
+
+        // Promote target user to clubAdmin
+        targetUser.role = 'clubAdmin';
+        await targetUser.save();
+
+        // Demote current admin to volunteer
+        const currentAdmin = await User.findById(req.user._id);
+        currentAdmin.role = 'volunteer';
+        await currentAdmin.save();
+
+        // Update the club's adminId and adminName
+        const Club = require('../models/Club');
+        await Club.findOneAndUpdate(
+            { adminId: req.user._id },
+            { adminId: targetUser._id, adminName: targetUser.name }
+        );
+
+        res.json({
+            message: `Club admin position transferred to ${targetUser.name}`,
+            newRole: 'volunteer',
+        });
+    } catch (error) {
+        console.error('Transfer admin error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   PUT /api/users/:id/role
+// @desc    Assign or remove volunteer role (clubAdmin only)
+router.put('/:id/role', auth, async (req, res) => {
+    try {
+        // Only clubAdmin can assign volunteers
+        if (req.user.role !== 'clubAdmin') {
+            return res.status(403).json({ message: 'Only club admins can assign volunteers' });
+        }
+
+        const { role } = req.body; // 'volunteer' or 'student'
+        if (!['student', 'volunteer'].includes(role)) {
+            return res.status(400).json({ message: 'Invalid role. Must be student or volunteer' });
+        }
+
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Can only change students to volunteers and vice versa
+        if (!['student', 'volunteer'].includes(user.role)) {
+            return res.status(400).json({ message: 'Can only assign volunteer role to students' });
+        }
+
+        user.role = role;
+        await user.save();
+
+        res.json({ ...user.toObject(), id: user._id, password: undefined });
+    } catch (error) {
+        console.error('Assign role error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+module.exports = router;
