@@ -1,19 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
-import { PlusCircle, Upload } from 'lucide-react';
+import { PlusCircle, Upload, X, ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { createEvent, createRequest, fetchClubs } from '@/app/utils/api';
+import { createEvent, createRequest, fetchClubs, uploadPoster } from '@/app/utils/api';
 import { useAuth } from '@/app/context/AuthContext';
 
 export const EventCreation = () => {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [userClub, setUserClub] = useState(null);
+  const [posterPreview, setPosterPreview] = useState(null);
+  const [posterFile, setPosterFile] = useState(null);
+  const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -40,11 +44,55 @@ export const EventCreation = () => {
     }
   }, [user]);
 
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please select an image file (JPEG, PNG, GIF, or WebP)');
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size must be less than 5MB');
+      return;
+    }
+
+    setPosterFile(file);
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPosterPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removePoster = () => {
+    setPosterFile(null);
+    setPosterPreview(null);
+    setFormData({ ...formData, posterUrl: '' });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
+      // Upload poster if a file was selected
+      let posterUrl = formData.posterUrl;
+      if (posterFile) {
+        setIsUploading(true);
+        const uploadResult = await uploadPoster(posterFile);
+        posterUrl = uploadResult.url;
+        setIsUploading(false);
+      }
+
       // Create the event with pending status
       const event = await createEvent({
         title: formData.title,
@@ -54,7 +102,7 @@ export const EventCreation = () => {
         venue: formData.venue,
         category: formData.category,
         maxParticipants: formData.maxParticipants,
-        posterUrl: formData.posterUrl || '',
+        posterUrl: posterUrl || '',
         clubId: userClub ? (userClub.id || userClub._id) : null,
         clubName: userClub ? userClub.name : '',
       });
@@ -78,10 +126,16 @@ export const EventCreation = () => {
         maxParticipants: '',
         posterUrl: '',
       });
+      setPosterFile(null);
+      setPosterPreview(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (error) {
       toast.error(error.message || 'Failed to submit request. Please try again.');
     } finally {
       setIsSubmitting(false);
+      setIsUploading(false);
     }
   };
 
@@ -189,21 +243,46 @@ export const EventCreation = () => {
               </div>
             </div>
 
+            {/* Poster Upload */}
             <div className="space-y-2">
-              <Label htmlFor="posterUrl">Event Poster URL</Label>
-              <Input
-                id="posterUrl"
-                type="url"
-                value={formData.posterUrl || ''}
-                onChange={(e) => setFormData({ ...formData, posterUrl: e.target.value })}
-                placeholder="https://example.com/poster.jpg"
+              <Label>Event Poster</Label>
+              {posterPreview ? (
+                <div className="relative inline-block">
+                  <img
+                    src={posterPreview}
+                    alt="Poster preview"
+                    className="w-full max-w-sm h-48 object-cover rounded-lg border"
+                  />
+                  <button
+                    type="button"
+                    onClick={removePoster}
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                >
+                  <ImageIcon className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600 font-medium">Click to upload poster image</p>
+                  <p className="text-xs text-gray-400 mt-1">JPEG, PNG, GIF, or WebP (Max 5MB)</p>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                onChange={handleFileSelect}
+                className="hidden"
               />
-              <p className="text-xs text-gray-500">Provide a direct URL to your event poster image</p>
             </div>
 
-            <Button type="submit" disabled={isSubmitting} className="w-full">
+            <Button type="submit" disabled={isSubmitting || isUploading} className="w-full">
               <PlusCircle className="w-4 h-4 mr-2" />
-              {isSubmitting ? 'Submitting...' : 'Submit for Approval'}
+              {isUploading ? 'Uploading poster...' : isSubmitting ? 'Submitting...' : 'Submit for Approval'}
             </Button>
           </form>
         </CardContent>
@@ -223,3 +302,6 @@ export const EventCreation = () => {
     </div>
   );
 };
+
+
+

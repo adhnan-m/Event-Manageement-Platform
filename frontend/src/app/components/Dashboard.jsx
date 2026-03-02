@@ -72,11 +72,17 @@ export const Dashboard = ({ onEventClick, title = 'Upcoming Events' }) => {
           {filteredEvents.map((event) => (
             <Card key={event.id || event._id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" onClick={() => onEventClick(event)}>
               <div className="relative">
-                <img
-                  src={event.posterUrl}
-                  alt={event.title}
-                  className="w-full h-48 object-cover"
-                />
+                {event.posterUrl ? (
+                  <img
+                    src={event.posterUrl}
+                    alt={event.title}
+                    className="w-full h-48 object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-48 bg-gradient-to-br from-blue-100 to-indigo-200 flex items-center justify-center">
+                    <Calendar className="w-12 h-12 text-blue-400" />
+                  </div>
+                )}
                 <div className="absolute top-2 right-2">
                   <Badge variant="default" className="bg-white text-black">
                     {event.category}

@@ -52,6 +52,35 @@ export const registerUser = (email, password, name, role) =>
 
 export const getCurrentUser = () => apiFetch('/auth/me');
 
+// ===== File Upload =====
+export const uploadPoster = async (file) => {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append('poster', file);
+
+    const res = await fetch(`${API_BASE}/upload`, {
+        method: 'POST',
+        headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+    });
+
+    let data;
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+        data = await res.json();
+    } else {
+        data = { message: await res.text() };
+    }
+
+    if (!res.ok) {
+        throw new Error(data?.message || `Upload failed: ${res.status}`);
+    }
+
+    return data;
+};
+
 // ===== Events =====
 export const fetchEvents = () => apiFetch('/events');
 
