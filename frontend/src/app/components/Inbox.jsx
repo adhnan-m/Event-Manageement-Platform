@@ -63,6 +63,12 @@ export const Inbox = () => {
                       {!message.read && <Badge variant="destructive">New</Badge>}
                     </div>
                     <CardTitle className="text-lg">{message.subject}</CardTitle>
+                    {message.eventClubName && (
+                      <p className="text-sm text-blue-600 font-medium mt-1">
+                        From: {message.eventClubName}
+                        {message.eventTitle ? ` — ${message.eventTitle}` : ''}
+                      </p>
+                    )}
                     <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
                       <Calendar className="w-4 h-4" />
                       <span>{new Date(message.date || message.createdAt).toLocaleDateString()}</span>

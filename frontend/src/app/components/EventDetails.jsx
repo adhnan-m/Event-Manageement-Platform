@@ -5,10 +5,11 @@ import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Badge } from '@/app/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
-import { Calendar, Clock, MapPin, Users, ArrowLeft, UserPlus, Mail, Phone } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, ArrowLeft, UserPlus, Mail, Phone, Send } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 import { toast } from 'sonner';
-import { registerForEvent, checkRegistration, getEventRegistrations } from '@/app/utils/api';
+import { registerForEvent, checkRegistration, getEventRegistrations, sendEventMessage } from '@/app/utils/api';
+import { Textarea } from '@/app/components/ui/textarea';
 
 export const EventDetails = ({ event, onClose, onRegisterSuccess }) => {
   const { user, updateProfile } = useAuth();
@@ -17,6 +18,9 @@ export const EventDetails = ({ event, onClose, onRegisterSuccess }) => {
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [participants, setParticipants] = useState([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
+  const [messageSubject, setMessageSubject] = useState('');
+  const [messageContent, setMessageContent] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
 
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -34,9 +38,9 @@ export const EventDetails = ({ event, onClose, onRegisterSuccess }) => {
     }
   }, [event, user]);
 
-  // Fetch participants for college admins
+  // Fetch participants for college admins and club admins
   useEffect(() => {
-    if (event && user?.role === 'collegeAdmin') {
+    if (event && (user?.role === 'collegeAdmin' || user?.role === 'clubAdmin')) {
       const eventId = event.id || event._id;
       setLoadingParticipants(true);
       getEventRegistrations(eventId)
@@ -194,8 +198,8 @@ export const EventDetails = ({ event, onClose, onRegisterSuccess }) => {
             </Card>
           </div>
 
-          {/* Participants List - College Admin Only */}
-          {user?.role === 'collegeAdmin' && (
+          {/* Participants List - College Admin & Club Admin */}
+          {(user?.role === 'collegeAdmin' || user?.role === 'clubAdmin') && (
             <Card className="lg:col-span-3 mt-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -242,6 +246,62 @@ export const EventDetails = ({ event, onClose, onRegisterSuccess }) => {
                     ))}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Event Messaging - Club Admin Only */}
+          {user?.role === 'clubAdmin' && participants.length > 0 && (
+            <Card className="lg:col-span-3 mt-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Send className="w-5 h-5" />
+                  Message Participants
+                </CardTitle>
+                <CardDescription>Send a notification to all {participants.length} registered participant(s)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  setSendingMessage(true);
+                  try {
+                    const eventId = event.id || event._id;
+                    await sendEventMessage(eventId, messageSubject, messageContent);
+                    toast.success(`Message sent to ${participants.length} participant(s)!`);
+                    setMessageSubject('');
+                    setMessageContent('');
+                  } catch (error) {
+                    toast.error(error.message || 'Failed to send message');
+                  } finally {
+                    setSendingMessage(false);
+                  }
+                }} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="msg-subject">Subject</Label>
+                    <Input
+                      id="msg-subject"
+                      placeholder="e.g., Important update about the event"
+                      value={messageSubject}
+                      onChange={(e) => setMessageSubject(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="msg-content">Message</Label>
+                    <Textarea
+                      id="msg-content"
+                      placeholder="Type your message here..."
+                      value={messageContent}
+                      onChange={(e) => setMessageContent(e.target.value)}
+                      rows={4}
+                      required
+                    />
+                  </div>
+                  <Button type="submit" disabled={sendingMessage}>
+                    <Send className="w-4 h-4 mr-2" />
+                    {sendingMessage ? 'Sending...' : 'Send to All Participants'}
+                  </Button>
+                </form>
               </CardContent>
             </Card>
           )}

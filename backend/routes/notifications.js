@@ -8,16 +8,23 @@ const router = express.Router();
 // @desc    Get current user's notifications (including auto-generated ticket notifications)
 router.get('/', auth, async (req, res) => {
     try {
-        // Get stored notifications
+        // Get stored notifications with event details populated
         const notifications = await Notification.find({ userId: req.user._id })
+            .populate('eventId', 'title clubName')
             .sort({ createdAt: -1 });
 
-        const mapped = notifications.map(n => ({
-            ...n.toObject(),
-            id: n._id,
-            date: n.createdAt,
-            type: n.type,
-        }));
+        const mapped = notifications.map(n => {
+            const obj = n.toObject();
+            return {
+                ...obj,
+                id: n._id,
+                date: n.createdAt,
+                type: n.type,
+                eventTitle: obj.eventId?.title || '',
+                eventClubName: obj.eventId?.clubName || '',
+                eventId: obj.eventId?._id || obj.eventId,
+            };
+        });
 
         res.json(mapped);
     } catch (error) {
@@ -87,6 +94,55 @@ router.post('/volunteer', auth, async (req, res) => {
         res.status(201).json({ message: `Message sent to ${targetIds.length} volunteer(s)` });
     } catch (error) {
         console.error('Send volunteer message error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST /api/notifications/event-message
+// @desc    Club admin sends a message to all participants of a specific event
+router.post('/event-message', auth, async (req, res) => {
+    try {
+        if (req.user.role !== 'clubAdmin') {
+            return res.status(403).json({ message: 'Only club admins can send event messages' });
+        }
+
+        const { eventId, subject, content } = req.body;
+        if (!eventId || !subject || !content) {
+            return res.status(400).json({ message: 'Event ID, subject, and content are required' });
+        }
+
+        // Verify the club admin owns this event
+        const Event = require('../models/Event');
+        const event = await Event.findById(eventId);
+        if (!event) {
+            return res.status(404).json({ message: 'Event not found' });
+        }
+        if (event.createdBy.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'You can only message participants of your own events' });
+        }
+
+        // Get all registrations for this event
+        const Registration = require('../models/Registration');
+        const registrations = await Registration.find({ eventId }).select('userId');
+        const userIds = registrations.map(r => r.userId);
+
+        if (userIds.length === 0) {
+            return res.status(400).json({ message: 'No participants registered for this event' });
+        }
+
+        // Create a notification for each participant
+        const notifications = userIds.map(id => ({
+            userId: id,
+            type: 'announcement',
+            subject: `[${event.clubName || 'Club'}] ${subject}`,
+            content: `From: ${event.clubName || 'Club Admin'} — regarding "${event.title}"\n\n${content}`,
+            eventId,
+        }));
+
+        await Notification.insertMany(notifications);
+        res.status(201).json({ message: `Message sent to ${userIds.length} participant(s)` });
+    } catch (error) {
+        console.error('Send event message error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });

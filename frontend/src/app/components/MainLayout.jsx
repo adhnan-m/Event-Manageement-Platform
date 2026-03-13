@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { Dashboard } from '@/app/components/Dashboard';
 import { EventDetails } from '@/app/components/EventDetails';
@@ -12,6 +12,8 @@ import { RequestsPage } from '@/app/components/RequestsPage';
 import { QRScanner } from '@/app/components/QRScanner';
 import { AssignVolunteers } from '@/app/components/AssignVolunteers';
 import { VolunteerDashboard } from '@/app/components/VolunteerDashboard';
+import { MyEvents } from '@/app/components/MyEvents';
+import { fetchClubs } from '@/app/utils/api';
 import { Button } from '@/app/components/ui/button';
 import {
   Calendar,
@@ -35,6 +37,20 @@ export const MainLayout = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [clubName, setClubName] = useState('');
+
+  // Fetch club name for club admins
+  useEffect(() => {
+    if (user?.role === 'clubAdmin') {
+      fetchClubs()
+        .then((clubs) => {
+          const userId = user.id || user._id;
+          const myClub = clubs.find(c => (c.adminId?.toString?.() || c.adminId) === userId);
+          if (myClub) setClubName(myClub.name);
+        })
+        .catch(() => { });
+    }
+  }, [user]);
 
   const handleEventClick = (event) => {
     setSelectedEvent(event);
@@ -60,6 +76,7 @@ export const MainLayout = () => {
     { page: 'clubCreation', icon: PlusCircle, label: 'Create Club', roles: ['student', 'volunteer'] },
     { page: 'assignVolunteers', icon: Users, label: 'Assign Volunteers', roles: ['clubAdmin'] },
     { page: 'eventCreation', icon: PlusCircle, label: 'Create Event', roles: ['clubAdmin'] },
+    { page: 'myEvents', icon: Calendar, label: 'My Events', roles: ['clubAdmin'] },
     { page: 'requests', icon: FileText, label: 'Requests', roles: ['collegeAdmin'] },
     { page: 'volunteerDashboard', icon: Briefcase, label: 'Volunteering', roles: ['volunteer'] },
     { page: 'scanner', icon: QrCode, label: 'QR Scanner', roles: ['clubAdmin'] },
@@ -98,6 +115,8 @@ export const MainLayout = () => {
         return <RequestsPage key={refreshKey} />;
       case 'scanner':
         return <QRScanner key={refreshKey} />;
+      case 'myEvents':
+        return <MyEvents key={refreshKey} onEventClick={handleEventClick} />;
       case 'assignVolunteers':
         return <AssignVolunteers key={refreshKey} />;
       case 'volunteerDashboard':
@@ -130,6 +149,9 @@ export const MainLayout = () => {
               <h1 className="text-2xl">Event Portal</h1>
               <p className="text-sm text-gray-600 mt-1">{user?.name}</p>
               <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
+              {clubName && (
+                <p className="text-xs text-blue-600 font-medium mt-1">{clubName}</p>
+              )}
             </div>
 
             <nav className="flex-1 overflow-y-auto p-4">

@@ -67,6 +67,35 @@ router.get('/past', async (req, res) => {
     }
 });
 
+// @route   GET /api/events/my-events
+// @desc    Get all events created by the logged-in club admin
+router.get('/my-events', auth, async (req, res) => {
+    try {
+        if (req.user.role !== 'clubAdmin') {
+            return res.status(403).json({ message: 'Only club admins can access this' });
+        }
+
+        const events = await Event.find({ createdBy: req.user._id })
+            .populate('clubId', 'name')
+            .sort({ date: -1 });
+
+        const mapped = await Promise.all(events.map(async (e) => {
+            const obj = e.toObject();
+            const regCount = await Registration.countDocuments({ eventId: e._id });
+            return {
+                ...obj,
+                id: e._id,
+                clubName: obj.clubId?.name || obj.clubName || '',
+                currentParticipants: regCount,
+            };
+        }));
+        res.json(mapped);
+    } catch (error) {
+        console.error('Get my events error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // @route   GET /api/events/:id
 // @desc    Get single event
 router.get('/:id', async (req, res) => {

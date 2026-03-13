@@ -194,3 +194,12 @@ export const transferClubAdmin = (targetUserId) =>
         method: 'PUT',
         body: JSON.stringify({ targetUserId }),
     });
+
+// ===== Club Admin Events =====
+export const fetchMyEvents = () => apiFetch('/events/my-events');
+
+export const sendEventMessage = (eventId, subject, content) =>
+    apiFetch('/notifications/event-message', {
+        method: 'POST',
+        body: JSON.stringify({ eventId, subject, content }),
+    });
