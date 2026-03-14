@@ -25,13 +25,25 @@ export const QRScanner = () => {
   const startScanning = async () => {
     try {
       setIsScanning(true);
-      const videoInputDevices = await BrowserMultiFormatReader.listVideoInputDevices();
 
-      if (videoInputDevices.length === 0) {
-        toast.error('No camera found on this device');
+      // Explicitly request camera permission first
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      } catch (permErr) {
+        if (permErr.name === 'NotAllowedError' || permErr.name === 'PermissionDeniedError') {
+          toast.error('Camera permission denied. Please allow camera access in your browser settings and try again.');
+        } else if (permErr.name === 'NotFoundError') {
+          toast.error('No camera found on this device.');
+        } else {
+          toast.error('Unable to access camera: ' + permErr.message);
+        }
         setIsScanning(false);
         return;
       }
+
+      // Stop the temporary stream — the zxing library will create its own
+      stream.getTracks().forEach(track => track.stop());
 
       if (videoRef.current) {
         codeReader.decodeFromVideoDevice(
@@ -46,7 +58,7 @@ export const QRScanner = () => {
       }
     } catch (error) {
       console.error('Scanner error:', error);
-      toast.error('Failed to start scanner. Please ensure camera permissions are granted.');
+      toast.error('Failed to start scanner. Please check camera permissions.');
       setIsScanning(false);
     }
   };

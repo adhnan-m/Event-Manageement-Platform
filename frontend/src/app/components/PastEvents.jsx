@@ -4,9 +4,10 @@ import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Badge } from '@/app/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
-import { Calendar, MapPin, Clock, Search, Filter, CheckCircle, XCircle } from 'lucide-react';
+import { Calendar, MapPin, Clock, Search, Filter, CheckCircle, XCircle, Download } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 import { fetchPastEvents, getUserRegistrations } from '@/app/utils/api';
+import { generateCertificate } from '@/app/utils/CertificateGenerator';
 
 export const PastEvents = ({ onEventClick }) => {
   const { user } = useAuth();
@@ -158,6 +159,25 @@ export const PastEvents = ({ onEventClick }) => {
                   <MapPin className="w-4 h-4" />
                   <span>{event.venue}</span>
                 </div>
+                {event.attended && (
+                  <Button
+                    className="w-full mt-3 bg-green-600 hover:bg-green-700"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      generateCertificate({
+                        studentName: user?.name,
+                        eventName: event.title,
+                        clubName: event.clubName,
+                        eventDate: event.date,
+                        venue: event.venue,
+                        attendedAt: event.attendedAt,
+                      });
+                    }}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download Certificate
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ))}

@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
-import { Calendar, MapPin, Clock, Ticket } from 'lucide-react';
+import { Calendar, MapPin, Clock, Ticket, Download } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '@/app/context/AuthContext';
 import { getUserRegistrations } from '@/app/utils/api';
+import { generateCertificate } from '@/app/utils/CertificateGenerator';
 
 export const RegisteredEvents = ({ onEventClick, onBrowseEvents }) => {
   const { user } = useAuth();
@@ -46,7 +47,11 @@ export const RegisteredEvents = ({ onEventClick, onBrowseEvents }) => {
                   alt={event.title}
                   className="w-full h-48 object-cover"
                 />
-                <Badge className="absolute top-2 right-2">Registered</Badge>
+                {event.registration?.attended ? (
+                  <Badge className="absolute top-2 right-2 bg-green-600">✓ Attended</Badge>
+                ) : (
+                  <Badge className="absolute top-2 right-2">Registered</Badge>
+                )}
               </div>
               <CardHeader>
                 <CardTitle>{event.title}</CardTitle>
@@ -95,6 +100,23 @@ export const RegisteredEvents = ({ onEventClick, onBrowseEvents }) => {
                 <Button variant="outline" className="w-full" onClick={() => onEventClick(event)}>
                   View Details
                 </Button>
+
+                {event.registration?.attended && (
+                  <Button
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    onClick={() => generateCertificate({
+                      studentName: user?.name,
+                      eventName: event.title,
+                      clubName: event.clubName,
+                      eventDate: event.date,
+                      venue: event.venue,
+                      attendedAt: event.registration?.attendedAt,
+                    })}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download Certificate
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ))}

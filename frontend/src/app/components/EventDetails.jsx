@@ -5,7 +5,7 @@ import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Badge } from '@/app/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
-import { Calendar, Clock, MapPin, Users, ArrowLeft, UserPlus, Mail, Phone, Send } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, ArrowLeft, UserPlus, Mail, Phone, Send, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 import { toast } from 'sonner';
 import { registerForEvent, checkRegistration, getEventRegistrations, sendEventMessage } from '@/app/utils/api';
@@ -206,7 +206,9 @@ export const EventDetails = ({ event, onClose, onRegisterSuccess }) => {
                   <Users className="w-5 h-5" />
                   Registered Participants ({participants.length})
                 </CardTitle>
-                <CardDescription>List of all students registered for this event</CardDescription>
+                <CardDescription>
+                  {participants.filter(p => p.attended).length} of {participants.length} attended
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {loadingParticipants ? (
@@ -241,7 +243,18 @@ export const EventDetails = ({ event, onClose, onRegisterSuccess }) => {
                             )}
                           </div>
                         </div>
-                        <Badge variant="default" className="bg-green-600">Registered</Badge>
+                        {p.attended ? (
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge variant="default" className="bg-green-600">
+                              <CheckCircle className="w-3 h-3 mr-1" /> Attended
+                            </Badge>
+                            {p.attendedAt && (
+                              <span className="text-xs text-gray-400">{new Date(p.attendedAt).toLocaleString()}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <Badge variant="secondary">Registered</Badge>
+                        )}
                       </div>
                     ))}
                   </div>

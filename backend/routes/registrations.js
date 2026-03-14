@@ -116,6 +116,8 @@ router.get('/event/:eventId', auth, async (req, res) => {
                 department: obj.userId?.department || '',
                 semester: obj.userId?.semester || '',
                 phoneNumber: obj.userId?.phoneNumber || '',
+                attended: obj.attended || false,
+                attendedAt: obj.attendedAt || null,
             };
         });
         res.json(mapped);
