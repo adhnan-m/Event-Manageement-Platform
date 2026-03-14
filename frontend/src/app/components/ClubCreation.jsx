@@ -105,6 +105,7 @@ export const ClubCreation = () => {
               <Input
                 id="memberCount"
                 type="number"
+                min="0"
                 value={formData.memberCount}
                 onChange={(e) => setFormData({ ...formData, memberCount: e.target.value })}
                 placeholder="Estimated number of members"
