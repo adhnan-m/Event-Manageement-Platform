@@ -1,7 +1,7 @@
   ## Running the code
 
   Run `npm install`in both frontend and backend folders to install the dependencies in both backend and frontend folders.
-
+  then Run `npm install`in the root folder also.
   then  Run `npm run dev` to start the development server in the root folder.
 
 
