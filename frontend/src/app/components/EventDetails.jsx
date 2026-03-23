@@ -179,7 +179,7 @@ export const EventDetails = ({ event, onClose, onRegisterSuccess }) => {
                   </div>
                 </div>
 
-                {(user?.role === 'collegeAdmin' || user?.role === 'clubAdmin') ? null : alreadyRegistered ? (
+                {user?.role === 'collegeAdmin' ? null : alreadyRegistered ? (
                   <Button className="w-full" size="lg" disabled>
                     Already Registered
                   </Button>

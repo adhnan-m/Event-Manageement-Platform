@@ -1,5 +1,6 @@
 const express = require('express');
 const User = require('../models/User');
+const Club = require('../models/Club');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
@@ -51,13 +52,33 @@ router.put('/profile', auth, async (req, res) => {
 
 
 // @route   GET /api/users/students
-// @desc    Get all students and volunteers (for volunteer assignment)
+// @desc    Get all students and this club's volunteers (for volunteer assignment)
 router.get('/students', auth, async (req, res) => {
     try {
-        const users = await User.find({ role: { $in: ['student', 'volunteer'] } })
+        // Find the club admin's club to get their specific volunteers
+        const club = await Club.findOne({ adminId: req.user._id });
+        const clubVolunteerIds = club ? club.volunteers.map(id => id.toString()) : [];
+
+        // Get all students, volunteers, and other club admins (excluding self)
+        const users = await User.find({
+            role: { $in: ['student', 'volunteer', 'clubAdmin'] },
+            _id: { $ne: req.user._id },
+        })
             .select('-password')
             .sort({ name: 1 });
-        const mapped = users.map(u => ({ ...u.toObject(), id: u._id }));
+
+        // Mark users as 'volunteer' only if they are in this club's volunteers list
+        const mapped = users.map(u => {
+            const obj = u.toObject();
+            const userId = (obj._id).toString();
+            const isClubVolunteer = clubVolunteerIds.includes(userId);
+            return {
+                ...obj,
+                id: obj._id,
+                role: isClubVolunteer ? 'volunteer' : 'student',
+            };
+        });
+
         res.json(mapped);
     } catch (error) {
         console.error('Get students error:', error);
@@ -115,7 +136,7 @@ router.put('/transfer-admin', auth, async (req, res) => {
 });
 
 // @route   PUT /api/users/:id/role
-// @desc    Assign or remove volunteer role (clubAdmin only)
+// @desc    Assign or remove volunteer role for this club (clubAdmin only)
 router.put('/:id/role', auth, async (req, res) => {
     try {
         // Only clubAdmin can assign volunteers
@@ -138,8 +159,36 @@ router.put('/:id/role', auth, async (req, res) => {
             return res.status(400).json({ message: 'Can only assign volunteer role to students' });
         }
 
-        user.role = role;
-        await user.save();
+        // Find this club admin's club
+        const club = await Club.findOne({ adminId: req.user._id });
+        if (!club) {
+            return res.status(404).json({ message: 'Club not found' });
+        }
+
+        if (role === 'volunteer') {
+            // Add user to this club's volunteers list
+            if (!club.volunteers.map(id => id.toString()).includes(req.params.id)) {
+                club.volunteers.push(req.params.id);
+                await club.save();
+            }
+            // Set user role to volunteer
+            user.role = 'volunteer';
+            await user.save();
+        } else {
+            // Remove user from this club's volunteers list
+            club.volunteers = club.volunteers.filter(id => id.toString() !== req.params.id);
+            await club.save();
+
+            // Only revert to student if user is not a volunteer in any other club
+            const otherClubs = await Club.findOne({
+                _id: { $ne: club._id },
+                volunteers: req.params.id,
+            });
+            if (!otherClubs) {
+                user.role = 'student';
+                await user.save();
+            }
+        }
 
         res.json({ ...user.toObject(), id: user._id, password: undefined });
     } catch (error) {

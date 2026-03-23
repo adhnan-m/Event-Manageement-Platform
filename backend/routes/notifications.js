@@ -58,7 +58,7 @@ router.put('/:id/read', auth, async (req, res) => {
 });
 
 // @route   POST /api/notifications/volunteer
-// @desc    Club admin sends a message to all volunteers
+// @desc    Club admin sends a message to their club's volunteers
 router.post('/volunteer', auth, async (req, res) => {
     try {
         if (req.user.role !== 'clubAdmin') {
@@ -70,12 +70,14 @@ router.post('/volunteer', auth, async (req, res) => {
             return res.status(400).json({ message: 'Subject and content are required' });
         }
 
-        // If specific volunteer IDs provided, send to those; otherwise send to all volunteers
-        const User = require('../models/User');
+        // Get the club admin's club and its volunteers
+        const Club = require('../models/Club');
+        const club = await Club.findOne({ adminId: req.user._id });
+
         let targetIds = volunteerIds;
         if (!targetIds || targetIds.length === 0) {
-            const volunteers = await User.find({ role: 'volunteer' }).select('_id');
-            targetIds = volunteers.map(v => v._id);
+            // Use the club's volunteers list instead of all volunteers globally
+            targetIds = club ? club.volunteers : [];
         }
 
         if (targetIds.length === 0) {

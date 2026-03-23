@@ -2,11 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
-import { QrCode, CheckCircle, XCircle, Camera } from 'lucide-react';
+import { Label } from '@/app/components/ui/label';
+import { QrCode, CheckCircle, XCircle, Camera, Calendar } from 'lucide-react';
 import { BrowserMultiFormatReader } from '@zxing/library';
 import { toast } from 'sonner';
 import { useAuth } from '@/app/context/AuthContext';
-import { markAttendance, getTodayAttendance } from '@/app/utils/api';
+import { markAttendance, getTodayAttendance, fetchMyEvents } from '@/app/utils/api';
 
 export const QRScanner = () => {
   const { user } = useAuth();
@@ -14,6 +15,25 @@ export const QRScanner = () => {
   const [scanHistory, setScanHistory] = useState([]);
   const videoRef = useRef(null);
   const [codeReader] = useState(() => new BrowserMultiFormatReader());
+  const [myEvents, setMyEvents] = useState([]);
+  const [selectedEventId, setSelectedEventId] = useState('');
+  const [loadingEvents, setLoadingEvents] = useState(true);
+
+  // Load club admin's events on mount
+  useEffect(() => {
+    setLoadingEvents(true);
+    fetchMyEvents()
+      .then((data) => {
+        // Only show approved, non-past events
+        const activeEvents = data.filter(e => e.status === 'approved' && !e.isPast);
+        setMyEvents(activeEvents);
+        if (activeEvents.length === 1) {
+          setSelectedEventId(activeEvents[0].id || activeEvents[0]._id);
+        }
+      })
+      .catch((err) => console.error('Failed to load events:', err))
+      .finally(() => setLoadingEvents(false));
+  }, []);
 
   // Load today's scan history on mount
   useEffect(() => {
@@ -22,7 +42,14 @@ export const QRScanner = () => {
       .catch((err) => console.error('Failed to load attendance:', err));
   }, []);
 
+  const selectedEvent = myEvents.find(e => (e.id || e._id) === selectedEventId);
+
   const startScanning = async () => {
+    if (!selectedEventId) {
+      toast.error('Please select an event first');
+      return;
+    }
+
     try {
       setIsScanning(true);
 
@@ -79,6 +106,23 @@ export const QRScanner = () => {
         return;
       }
 
+      // Verify the scanned QR matches the selected event
+      if (eventId !== selectedEventId) {
+        const scanResult = {
+          eventId,
+          userId,
+          userName: 'Attendee',
+          eventName: selectedEvent?.title || 'Event',
+          timestamp: new Date().toISOString(),
+          status: 'invalid',
+          message: 'This ticket is for a different event',
+        };
+        setScanHistory(prev => [scanResult, ...prev]);
+        toast.error('This ticket is for a different event!');
+        stopScanning();
+        return;
+      }
+
       // Mark attendance via API
       const result = await markAttendance(userId, eventId);
 
@@ -105,7 +149,7 @@ export const QRScanner = () => {
         eventId: '',
         userId: '',
         userName: 'Unknown',
-        eventName: 'Unknown',
+        eventName: selectedEvent?.title || 'Unknown',
         timestamp: new Date().toISOString(),
         status: 'invalid',
         message: error.message || 'Invalid QR code',
@@ -130,6 +174,49 @@ export const QRScanner = () => {
         <p className="text-gray-600">Scan student tickets for event attendance</p>
       </div>
 
+      {/* Event Selector */}
+      <Card className="border-blue-200 bg-blue-50/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-blue-600" />
+            Select Event
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingEvents ? (
+            <div className="flex justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+            </div>
+          ) : myEvents.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">No active events found. Create an event first.</p>
+          ) : (
+            <div className="space-y-3">
+              <Label htmlFor="event-select">Choose which event to scan tickets for:</Label>
+              <select
+                id="event-select"
+                value={selectedEventId}
+                onChange={(e) => setSelectedEventId(e.target.value)}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                disabled={isScanning}
+              >
+                <option value="">-- Select an event --</option>
+                {myEvents.map((event) => (
+                  <option key={event.id || event._id} value={event.id || event._id}>
+                    {event.title} — {new Date(event.date).toLocaleDateString()} at {event.time}
+                  </option>
+                ))}
+              </select>
+              {selectedEvent && (
+                <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-100 rounded-md px-3 py-2">
+                  <CheckCircle className="w-4 h-4" />
+                  Scanning for: <strong>{selectedEvent.title}</strong>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Scanner */}
         <Card>
@@ -148,7 +235,9 @@ export const QRScanner = () => {
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
                   <QrCode className="w-16 h-16 mb-4 opacity-50" />
-                  <p className="text-center opacity-75">Click start to scan QR codes</p>
+                  <p className="text-center opacity-75">
+                    {selectedEventId ? 'Click start to scan QR codes' : 'Select an event above to begin'}
+                  </p>
                 </div>
               )}
 
@@ -166,7 +255,7 @@ export const QRScanner = () => {
 
             <div className="flex gap-2">
               {!isScanning ? (
-                <Button onClick={startScanning} className="flex-1">
+                <Button onClick={startScanning} className="flex-1" disabled={!selectedEventId}>
                   <Camera className="w-4 h-4 mr-2" />
                   Start Scanner
                 </Button>
@@ -178,9 +267,10 @@ export const QRScanner = () => {
             </div>
 
             <div className="text-sm text-gray-600 space-y-1">
+              <p>• Select an event above before scanning</p>
               <p>• Position the QR code within the frame</p>
               <p>• Ensure good lighting for best results</p>
-              <p>• The ticket will be validated automatically</p>
+              <p>• Tickets for other events will be rejected</p>
             </div>
           </CardContent>
         </Card>

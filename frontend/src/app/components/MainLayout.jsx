@@ -70,8 +70,8 @@ export const MainLayout = () => {
 
   const navigationItems = [
     { page: 'dashboard', icon: Calendar, label: 'Upcoming Events', roles: ['student', 'volunteer', 'clubAdmin', 'collegeAdmin'] },
-    { page: 'registered', icon: CheckCircle, label: 'Registered Events', roles: ['student', 'volunteer'] },
-    { page: 'past', icon: Clock, label: 'Past Events', roles: ['student', 'volunteer'] },
+    { page: 'registered', icon: CheckCircle, label: 'Registered Events', roles: ['student', 'volunteer', 'clubAdmin'] },
+    { page: 'past', icon: Clock, label: 'Past Events', roles: ['student', 'volunteer', 'clubAdmin'] },
     { page: 'inbox', icon: Mail, label: 'Inbox', roles: ['student', 'volunteer', 'clubAdmin'] },
     { page: 'clubCreation', icon: PlusCircle, label: 'Create Club', roles: ['student', 'volunteer'] },
     { page: 'assignVolunteers', icon: Users, label: 'Assign Volunteers', roles: ['clubAdmin'] },
