@@ -169,6 +169,8 @@ export const updateUserProfile = (updates) =>
 // ===== Volunteer Management =====
 export const fetchStudents = () => apiFetch('/users/students');
 
+export const fetchMyVolunteerClubs = () => apiFetch('/users/my-clubs');
+
 export const assignVolunteer = (userId) =>
     apiFetch(`/users/${userId}/role`, {
         method: 'PUT',

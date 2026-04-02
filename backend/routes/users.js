@@ -86,6 +86,30 @@ router.get('/students', auth, async (req, res) => {
     }
 });
 
+// @route   GET /api/users/my-clubs
+// @desc    Get all clubs where the current user is a volunteer
+router.get('/my-clubs', auth, async (req, res) => {
+    try {
+        const clubs = await Club.find({ volunteers: req.user._id })
+            .populate('adminId', 'name email');
+
+        const mapped = clubs.map(c => {
+            const obj = c.toObject();
+            return {
+                id: obj._id,
+                clubName: obj.name,
+                clubAdminName: obj.adminId?.name || 'Unknown',
+                assignedDate: obj.createdAt,
+            };
+        });
+
+        res.json(mapped);
+    } catch (error) {
+        console.error('Get my clubs error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // @route   PUT /api/users/transfer-admin
 // NOTE: This MUST be defined BEFORE /:id/role to avoid Express treating 'transfer-admin' as :id
 // @desc    Transfer club admin position to a student (current admin becomes volunteer)
