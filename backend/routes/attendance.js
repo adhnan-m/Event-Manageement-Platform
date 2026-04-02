@@ -14,6 +14,22 @@ router.post('/', auth, async (req, res) => {
         const { userId, eventId } = req.body;
         const scannedBy = req.user._id;
 
+        // Only club admins and volunteers can mark attendance
+        if (!['clubAdmin', 'volunteer'].includes(req.user.role)) {
+            return res.status(403).json({ success: false, message: 'Only club admins and volunteers can mark attendance' });
+        }
+
+        // Check the event exists and is happening today
+        const event = await Event.findById(eventId);
+        if (!event) {
+            return res.status(404).json({ success: false, message: 'Event not found' });
+        }
+        const today = new Date().toISOString().split('T')[0];
+        const eventDay = new Date(event.date).toISOString().split('T')[0];
+        if (today !== eventDay) {
+            return res.status(400).json({ success: false, message: 'Attendance can only be marked on the day of the event' });
+        }
+
         // Check registration exists
         const registration = await Registration.findOne({ userId, eventId });
         if (!registration) {
@@ -43,8 +59,7 @@ router.post('/', auth, async (req, res) => {
             $inc: { eventsParticipated: 1 },
         });
 
-        // Get event and user details for the response
-        const event = await Event.findById(eventId);
+        // Get user details for the response (event already fetched above)
         const attendedUser = await User.findById(userId).select('name');
 
         res.json({

@@ -119,6 +119,22 @@ router.post('/', auth, async (req, res) => {
     try {
         const { title, description, date, time, venue, category, maxParticipants, posterUrl, clubId, clubName } = req.body;
 
+        // Validate required fields
+        if (!title || !description || !date || !time || !venue || !category || !maxParticipants) {
+            return res.status(400).json({ message: 'All required fields must be provided' });
+        }
+
+        // Validate maxParticipants is a positive number
+        if (Number(maxParticipants) <= 0) {
+            return res.status(400).json({ message: 'Max participants must be a positive number' });
+        }
+
+        // Check if event date/time is in the past
+        const eventDateTime = new Date(`${date}T${time}`);
+        if (eventDateTime < new Date()) {
+            return res.status(400).json({ message: 'Event date and time cannot be in the past' });
+        }
+
         // Look up the actual club name from the database
         let resolvedClubName = clubName || '';
         if (clubId) {
@@ -166,6 +182,21 @@ router.put('/:id', auth, async (req, res) => {
         const isCollegeAdmin = req.user.role === 'collegeAdmin';
         if (!isOwner && !isCollegeAdmin) {
             return res.status(403).json({ message: 'Not authorized to update this event' });
+        }
+
+        // Validate maxParticipants if provided
+        if (req.body.maxParticipants !== undefined && Number(req.body.maxParticipants) <= 0) {
+            return res.status(400).json({ message: 'Max participants must be a positive number' });
+        }
+
+        // Check if updated date/time would be in the past
+        const newDate = req.body.date || existingEvent.date;
+        const newTime = req.body.time || existingEvent.time;
+        if (req.body.date || req.body.time) {
+            const eventDateTime = new Date(`${newDate}T${newTime}`);
+            if (eventDateTime < new Date()) {
+                return res.status(400).json({ message: 'Event date and time cannot be in the past' });
+            }
         }
 
         // Only allow specific fields to be updated

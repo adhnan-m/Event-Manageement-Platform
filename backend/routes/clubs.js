@@ -23,6 +23,20 @@ router.post('/', auth, async (req, res) => {
     try {
         const { name, description, contactEmail, memberCount } = req.body;
 
+        // Validate required fields
+        if (!name || !name.trim()) {
+            return res.status(400).json({ message: 'Club name is required' });
+        }
+        if (!description || !description.trim()) {
+            return res.status(400).json({ message: 'Club description is required' });
+        }
+
+        // Check for duplicate club name
+        const existingClub = await Club.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } });
+        if (existingClub) {
+            return res.status(400).json({ message: 'A club with this name already exists' });
+        }
+
         const club = await Club.create({
             name,
             description,

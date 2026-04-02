@@ -44,6 +44,19 @@ router.post('/', auth, async (req, res) => {
     try {
         const { type, title, description, relatedId } = req.body;
 
+        // Validate type
+        if (!['club', 'event'].includes(type)) {
+            return res.status(400).json({ message: 'Request type must be "club" or "event"' });
+        }
+
+        // Validate required fields
+        if (!title || !title.trim()) {
+            return res.status(400).json({ message: 'Title is required' });
+        }
+        if (!description || !description.trim()) {
+            return res.status(400).json({ message: 'Description is required' });
+        }
+
         const request = await Request.create({
             type,
             title,
