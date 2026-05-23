@@ -5,7 +5,8 @@ import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Badge } from '@/app/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
-import { Calendar, Clock, MapPin, Users, ArrowLeft, UserPlus, Mail, Phone, Send, CheckCircle } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, ArrowLeft, UserPlus, Mail, Phone, Send, CheckCircle, FileSpreadsheet, FileText } from 'lucide-react';
+import { exportParticipantsToExcel, exportParticipantsToPDF } from '@/app/utils/ParticipantExport';
 import { useAuth } from '@/app/context/AuthContext';
 import { toast } from 'sonner';
 import { registerForEvent, checkRegistration, getEventRegistrations, sendEventMessage } from '@/app/utils/api';
@@ -38,9 +39,16 @@ export const EventDetails = ({ event, onClose, onRegisterSuccess }) => {
     }
   }, [event, user]);
 
-  // Fetch participants for college admins and club admins
+  // Check if current user is the event creator
+  const isEventOwner = event && user && (
+    event.createdBy === (user.id || user._id) ||
+    (event.createdBy && (user.id || user._id) && event.createdBy.toString() === (user.id || user._id).toString())
+  );
+  const canViewParticipants = user?.role === 'collegeAdmin' || isEventOwner;
+
+  // Fetch participants for college admins and event owner only
   useEffect(() => {
-    if (event && (user?.role === 'collegeAdmin' || user?.role === 'clubAdmin')) {
+    if (event && canViewParticipants) {
       const eventId = event.id || event._id;
       setLoadingParticipants(true);
       getEventRegistrations(eventId)
@@ -198,17 +206,51 @@ export const EventDetails = ({ event, onClose, onRegisterSuccess }) => {
             </Card>
           </div>
 
-          {/* Participants List - College Admin & Club Admin */}
-          {(user?.role === 'collegeAdmin' || user?.role === 'clubAdmin') && (
+          {/* Participants List - College Admin & Event Owner */}
+          {canViewParticipants && (
             <Card className="lg:col-span-3 mt-6">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Registered Participants ({participants.length})
-                </CardTitle>
-                <CardDescription>
-                  {participants.filter(p => p.attended).length} of {participants.length} attended
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="w-5 h-5" />
+                      Registered Participants ({participants.length})
+                    </CardTitle>
+                    <CardDescription className="mt-1">
+                      {participants.filter(p => p.attended).length} of {participants.length} attended
+                    </CardDescription>
+                  </div>
+                  {participants.length > 0 && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => exportParticipantsToExcel({
+                          eventName: event.title,
+                          eventDate: event.date,
+                          participants,
+                        })}
+                      >
+                        <FileSpreadsheet className="w-4 h-4 mr-1" />
+                        Excel
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => exportParticipantsToPDF({
+                          eventName: event.title,
+                          clubName: event.clubName,
+                          eventDate: event.date,
+                          venue: event.venue,
+                          participants,
+                        })}
+                      >
+                        <FileText className="w-4 h-4 mr-1" />
+                        PDF
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {loadingParticipants ? (
@@ -264,7 +306,8 @@ export const EventDetails = ({ event, onClose, onRegisterSuccess }) => {
           )}
 
           {/* Event Messaging - Club Admin Only */}
-          {user?.role === 'clubAdmin' && participants.length > 0 && (
+          {/* Event Messaging - Event Owner Only */}
+          {isEventOwner && participants.length > 0 && (
             <Card className="lg:col-span-3 mt-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

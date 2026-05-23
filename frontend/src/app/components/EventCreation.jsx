@@ -81,6 +81,14 @@ export const EventCreation = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Check if the event date/time is in the past
+    const eventDateTime = new Date(`${formData.date}T${formData.time}`);
+    if (eventDateTime < new Date()) {
+      toast.error('Event date and time cannot be in the past');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {

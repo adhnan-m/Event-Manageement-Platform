@@ -26,6 +26,23 @@ router.put('/profile', auth, async (req, res) => {
     try {
         const { name, semester, department, phoneNumber } = req.body;
 
+        // Validate field lengths
+        if (name !== undefined && (name.length === 0 || name.length > 100)) {
+            return res.status(400).json({ message: 'Name must be between 1 and 100 characters' });
+        }
+        if (semester !== undefined && semester.length > 50) {
+            return res.status(400).json({ message: 'Semester must be less than 50 characters' });
+        }
+        if (department !== undefined && department.length > 50) {
+            return res.status(400).json({ message: 'Department must be less than 50 characters' });
+        }
+        if (phoneNumber !== undefined && phoneNumber.length > 0) {
+            const phoneRegex = /^[0-9+\-\s()]{6,15}$/;
+            if (!phoneRegex.test(phoneNumber)) {
+                return res.status(400).json({ message: 'Please provide a valid phone number' });
+            }
+        }
+
         const updateFields = {};
         if (name !== undefined) updateFields.name = name;
         if (semester !== undefined) updateFields.semester = semester;
@@ -82,6 +99,30 @@ router.get('/students', auth, async (req, res) => {
         res.json(mapped);
     } catch (error) {
         console.error('Get students error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET /api/users/my-clubs
+// @desc    Get all clubs where the current user is a volunteer
+router.get('/my-clubs', auth, async (req, res) => {
+    try {
+        const clubs = await Club.find({ volunteers: req.user._id })
+            .populate('adminId', 'name email');
+
+        const mapped = clubs.map(c => {
+            const obj = c.toObject();
+            return {
+                id: obj._id,
+                clubName: obj.name,
+                clubAdminName: obj.adminId?.name || 'Unknown',
+                assignedDate: obj.createdAt,
+            };
+        });
+
+        res.json(mapped);
+    } catch (error) {
+        console.error('Get my clubs error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });

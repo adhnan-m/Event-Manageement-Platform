@@ -77,7 +77,7 @@ export const AuthPage = () => {
                   <Input
                     id="login-email"
                     type="email"
-                    placeholder="student@college.edu"
+                    placeholder="Enter your email"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     required

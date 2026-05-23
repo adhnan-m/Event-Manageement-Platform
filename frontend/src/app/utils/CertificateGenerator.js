@@ -167,3 +167,166 @@ export function generateCertificate({ studentName, eventName, clubName, eventDat
     const safeName = (eventName || 'Event').replace(/[^a-zA-Z0-9]/g, '_');
     doc.save(`Certificate_${safeName}.pdf`);
 }
+
+/**
+ * Generate and download a professional volunteer certificate as PDF.
+ *
+ * @param {Object} opts
+ * @param {string} opts.volunteerName
+ * @param {string} opts.clubName
+ * @param {string} [opts.clubAdminName]
+ * @param {string} [opts.assignedDate] – ISO date string or displayable date
+ */
+export function generateVolunteerCertificate({ volunteerName, clubName, clubAdminName, assignedDate }) {
+    // Landscape A4
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const W = 297;
+    const H = 210;
+
+    // ── Background ──
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, W, H, 'F');
+
+    // ── Outer decorative border (emerald green) ──
+    const borderMargin = 8;
+    doc.setDrawColor(4, 120, 87);   // emerald-700
+    doc.setLineWidth(2);
+    doc.rect(borderMargin, borderMargin, W - borderMargin * 2, H - borderMargin * 2);
+
+    // Inner border
+    const innerMargin = 12;
+    doc.setDrawColor(16, 185, 129);  // emerald-500
+    doc.setLineWidth(0.5);
+    doc.rect(innerMargin, innerMargin, W - innerMargin * 2, H - innerMargin * 2);
+
+    // ── Corner decorations ──
+    const cornerSize = 20;
+    const corners = [
+        [innerMargin, innerMargin],
+        [W - innerMargin - cornerSize, innerMargin],
+        [innerMargin, H - innerMargin - cornerSize],
+        [W - innerMargin - cornerSize, H - innerMargin - cornerSize],
+    ];
+    doc.setFillColor(4, 120, 87);
+    corners.forEach(([x, y]) => {
+        doc.setDrawColor(4, 120, 87);
+        doc.setLineWidth(1.5);
+        doc.line(x, y, x + 12, y);
+        doc.line(x, y, x, y + 12);
+        doc.line(x + cornerSize, y + cornerSize, x + cornerSize - 12, y + cornerSize);
+        doc.line(x + cornerSize, y + cornerSize, x + cornerSize, y + cornerSize - 12);
+    });
+
+    // ── Decorative top line (gold) ──
+    doc.setDrawColor(234, 179, 8);
+    doc.setLineWidth(1);
+    doc.line(60, 30, W - 60, 30);
+    doc.setFillColor(234, 179, 8);
+    doc.circle(60, 30, 2, 'F');
+    doc.circle(W - 60, 30, 2, 'F');
+    doc.circle(W / 2, 30, 2, 'F');
+
+    // ── Header ──
+    let y = 45;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(14);
+    doc.setTextColor(100, 100, 100);
+    doc.text('COLLEGE EVENT MANAGEMENT SYSTEM', W / 2, y, { align: 'center' });
+
+    y += 15;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(36);
+    doc.setTextColor(4, 120, 87);
+    doc.text('CERTIFICATE', W / 2, y, { align: 'center' });
+
+    y += 12;
+    doc.setFontSize(16);
+    doc.setTextColor(16, 185, 129);
+    doc.text('OF VOLUNTEERING', W / 2, y, { align: 'center' });
+
+    // ── Decorative separator ──
+    y += 8;
+    doc.setDrawColor(234, 179, 8);
+    doc.setLineWidth(0.8);
+    doc.line(100, y, W - 100, y);
+
+    // ── "This is to certify that" ──
+    y += 12;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(13);
+    doc.setTextColor(80, 80, 80);
+    doc.text('This is to certify that', W / 2, y, { align: 'center' });
+
+    // ── Volunteer name ──
+    y += 14;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(26);
+    doc.setTextColor(4, 120, 87);
+    doc.text(volunteerName || 'Volunteer', W / 2, y, { align: 'center' });
+
+    // Underline under name
+    const nameWidth = doc.getTextWidth(volunteerName || 'Volunteer');
+    doc.setDrawColor(234, 179, 8);
+    doc.setLineWidth(0.6);
+    doc.line(W / 2 - nameWidth / 2 - 5, y + 2, W / 2 + nameWidth / 2 + 5, y + 2);
+
+    // ── Volunteering text ──
+    y += 14;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(13);
+    doc.setTextColor(80, 80, 80);
+    doc.text('has served as a dedicated volunteer for', W / 2, y, { align: 'center' });
+
+    // ── Club name ──
+    y += 13;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(16, 185, 129);
+    doc.text(clubName || 'Club', W / 2, y, { align: 'center' });
+
+    // ── Approved by ──
+    if (clubAdminName) {
+        y += 11;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(12);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`approved by ${clubAdminName}`, W / 2, y, { align: 'center' });
+    }
+
+    // ── Assignment date ──
+    y += 9;
+    const dateFormatted = assignedDate
+        ? new Date(assignedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+        : 'N/A';
+    doc.setFontSize(11);
+    doc.setTextColor(120, 120, 120);
+    doc.text(`Member since: ${dateFormatted}`, W / 2, y, { align: 'center' });
+
+    // ── Bottom decorative line ──
+    y = H - 35;
+    doc.setDrawColor(234, 179, 8);
+    doc.setLineWidth(0.8);
+    doc.line(60, y, W - 60, y);
+    doc.setFillColor(234, 179, 8);
+    doc.circle(60, y, 2, 'F');
+    doc.circle(W - 60, y, 2, 'F');
+    doc.circle(W / 2, y, 2, 'F');
+
+    // ── Footer ──
+    y += 8;
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(9);
+    doc.setTextColor(150, 150, 150);
+    const issuedDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    doc.text(`Issued on ${issuedDate}`, W / 2, y, { align: 'center' });
+
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(180, 180, 180);
+    doc.text('This certificate is auto-generated by the College Event Management System', W / 2, y, { align: 'center' });
+
+    // ── Download ──
+    const safeName = (clubName || 'Club').replace(/[^a-zA-Z0-9]/g, '_');
+    doc.save(`Volunteer_Certificate_${safeName}.pdf`);
+}

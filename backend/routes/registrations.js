@@ -25,6 +25,18 @@ router.post('/', auth, async (req, res) => {
         if (!event) {
             return res.status(404).json({ success: false, message: 'Event not found' });
         }
+
+        // Check if event is approved
+        if (event.status !== 'approved') {
+            return res.status(400).json({ success: false, message: 'Cannot register for an event that is not approved' });
+        }
+
+        // Check if event date is in the past
+        const eventDate = new Date(event.date);
+        if (eventDate < new Date(new Date().toISOString().split('T')[0])) {
+            return res.status(400).json({ success: false, message: 'Cannot register for a past event' });
+        }
+
         if (event.currentParticipants >= event.maxParticipants) {
             return res.status(400).json({ success: false, message: 'Event is full' });
         }
@@ -101,9 +113,20 @@ router.get('/user', auth, async (req, res) => {
 });
 
 // @route   GET /api/registrations/event/:eventId
-// @desc    Get registrations for a specific event
+// @desc    Get registrations for a specific event (event creator or collegeAdmin only)
 router.get('/event/:eventId', auth, async (req, res) => {
     try {
+        // Only collegeAdmin or the event creator can view participants
+        const event = await Event.findById(req.params.eventId);
+        if (!event) {
+            return res.status(404).json({ message: 'Event not found' });
+        }
+        const isOwner = event.createdBy && event.createdBy.toString() === req.user._id.toString();
+        const isCollegeAdmin = req.user.role === 'collegeAdmin';
+        if (!isOwner && !isCollegeAdmin) {
+            return res.status(403).json({ message: 'Not authorized to view participants for this event' });
+        }
+
         const registrations = await Registration.find({ eventId: req.params.eventId })
             .populate('userId', 'name email department semester phoneNumber');
         const mapped = registrations.map(r => {
